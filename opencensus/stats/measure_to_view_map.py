@@ -16,6 +16,7 @@ from collections import defaultdict
 import copy
 import logging
 
+from opencensus.stats import metric_utils
 from opencensus.stats import view_data as view_data_module
 
 
@@ -65,11 +66,7 @@ class MeasureToViewMap(object):
         else:
             return None
 
-        view_data_copy = copy.copy(view_data)
-        tvdam_copy = copy.deepcopy(view_data.tag_value_aggregation_data_map)
-        view_data_copy._tag_value_aggregation_data_map = tvdam_copy
-        view_data_copy.end()
-        return view_data_copy
+        return self.copy_and_finalize_view_data(view_data)
 
     def filter_exported_views(self, all_views):
         """returns the subset of the given view that should be exported"""
@@ -123,6 +120,34 @@ class MeasureToViewMap(object):
 
     def export(self, view_datas):
         """export view datas to registered exporters"""
+        view_datas_copy = \
+            [self.copy_and_finalize_view_data(vd) for vd in view_datas]
         if len(self.exporters) > 0:
             for e in self.exporters:
-                e.export(view_datas)
+                e.export(view_datas_copy)
+
+    def get_metrics(self, timestamp):
+        """Get a Metric for each registered view.
+
+        Convert each registered view's associated `ViewData` into a `Metric` to
+        be exported.
+
+        :type timestamp: :class: `datetime.datetime`
+        :param timestamp: The timestamp to use for metric conversions, usually
+        the current time.
+
+        :rtype: Iterator[:class: `opencensus.metrics.export.metric.Metric`]
+        """
+        for vdl in self._measure_to_view_data_list_map.values():
+            for vd in vdl:
+                metric = metric_utils.view_data_to_metric(vd, timestamp)
+                if metric is not None:
+                    yield metric
+
+    # TODO(issue #470): remove this method once we export immutable stats.
+    def copy_and_finalize_view_data(self, view_data):
+        view_data_copy = copy.copy(view_data)
+        tvdam_copy = copy.deepcopy(view_data.tag_value_aggregation_data_map)
+        view_data_copy._tag_value_aggregation_data_map = tvdam_copy
+        view_data_copy.end()
+        return view_data_copy

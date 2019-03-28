@@ -17,11 +17,11 @@ import sys
 import time
 import unittest
 
+from opencensus.ext.prometheus import stats_exporter as prometheus
 from opencensus.stats import aggregation as aggregation_module
 from opencensus.stats import measure as measure_module
 from opencensus.stats import stats as stats_module
 from opencensus.stats import view as view_module
-from opencensus.stats.exporters import prometheus_exporter as prometheus
 from opencensus.tags import tag_key as tag_key_module
 from opencensus.tags import tag_map as tag_map_module
 from opencensus.tags import tag_value as tag_value_module
@@ -74,11 +74,11 @@ class TestPrometheusStats(unittest.TestCase):
             import urllib2
             contents = urllib2.urlopen("http://localhost:9303/metrics").read()
 
-        self.assertIn(b'# TYPE opencensus_request_count_view counter',
+        self.assertIn(b'# TYPE opencensus_request_count_view_total counter',
                       contents)
-        self.assertIn(b'opencensus_request_count_view'
+        self.assertIn(b'opencensus_request_count_view_total'
                       b'{method="some method"} 1.0',
                       contents)
-        self.assertIn(b'opencensus_request_count_view'
+        self.assertIn(b'opencensus_request_count_view_total'
                       b'{method="some other method"} 2.0',
                       contents)
